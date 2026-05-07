@@ -1,5 +1,5 @@
 // ============================================================
-// Full Indicator Suite (All-in-One) | v1.2.0 | 2026-05-07
+// Full Indicator Suite (All-in-One) | v1.3.0 | 2026-05-07
 // Author: Project Owner
 // Description: Trend Candles + Sideway Zone + Auto Trendlines — single script
 // ============================================================
@@ -46,8 +46,7 @@ if tc_state == 0
 tc_up    = tc_state == 1
 tc_color = tc_up ? tc_colorUp : tc_colorDown
 
-// barcolor() tô màu thẳng vào nến gốc (body + wick + border)
-// KHÔNG dùng plotcandle() — sẽ vẽ thêm lớp nến thứ 2 đè lên
+// barcolor() tô màu trực tiếp lên nến gốc — KHÔNG dùng plotcandle()
 barcolor(enableTrend ? tc_color : na)
 
 plot(enableTrend and tc_showST ? stLine : na, "Supertrend",
@@ -123,7 +122,6 @@ if (sz_confirmedUp or sz_confirmedDn) and sz_open
     sz_upCnt   := 0
     sz_dnCnt   := 0
 
-// plotshape must be global scope in v6
 plotshape(sz_confirmedUp, "BreakUp",   shape.triangleup,   location.belowbar, color=sz_upClr, size=size.small)
 plotshape(sz_confirmedDn, "BreakDown", shape.triangledown, location.abovebar, color=sz_dnClr, size=size.small)
 
@@ -139,9 +137,9 @@ alertcondition(sz_confirmedDn, "② Breakdown DOWN", "Suite: Breakdown DOWN conf
 
 // ═══════════════════════════════════════════════════════════
 //  MODULE 3 — AUTO TRENDLINES
-//  NOTE: In Pine v6, arr[i] is time-series (bars back), NOT element index.
-//        Must use array.get(arr, i) for element access.
-//        line.new() now uses chart.point objects.
+//  FIX: store open/close AT pivot detection time — avoid
+//       historical series access open[bar_index - x2] which
+//       crashes when pivot > max_bars_back bars ago.
 // ═══════════════════════════════════════════════════════════
 tl_left   = input.int(10,    "Pivot Left Bars",     minval=3, maxval=50, group="③ Auto Trendlines")
 tl_right  = input.int(10,    "Pivot Right Bars",    minval=3, maxval=50, group="③ Auto Trendlines")
@@ -154,45 +152,61 @@ tl_lw     = input.int(2,         "Line Width", minval=1, maxval=4,       group="
 tl_swHi = ta.pivothigh(high, tl_left, tl_right)
 tl_swLo = ta.pivotlow(low,  tl_left, tl_right)
 
+// Store price, bar index, AND candle body values at detection time
 var float[] tl_shP = array.new_float(0)
 var int[]   tl_shB = array.new_int(0)
+var float[] tl_shBodyTop = array.new_float(0)
+var float[] tl_shBodyBot = array.new_float(0)
+
 var float[] tl_slP = array.new_float(0)
 var int[]   tl_slB = array.new_int(0)
+var float[] tl_slBodyTop = array.new_float(0)
+var float[] tl_slBodyBot = array.new_float(0)
 
+// Pivot confirmed tl_right bars ago — read open/close right now (offset = tl_right)
 if not na(tl_swHi)
-    array.push(tl_shP, tl_swHi)
-    array.push(tl_shB, bar_index - tl_right)
+    pO = open[tl_right]
+    pC = close[tl_right]
+    array.push(tl_shP,       tl_swHi)
+    array.push(tl_shB,       bar_index - tl_right)
+    array.push(tl_shBodyTop, math.max(pO, pC))
+    array.push(tl_shBodyBot, math.min(pO, pC))
     if array.size(tl_shP) > tl_max + 1
         array.shift(tl_shP)
         array.shift(tl_shB)
+        array.shift(tl_shBodyTop)
+        array.shift(tl_shBodyBot)
 
 if not na(tl_swLo)
-    array.push(tl_slP, tl_swLo)
-    array.push(tl_slB, bar_index - tl_right)
+    pO = open[tl_right]
+    pC = close[tl_right]
+    array.push(tl_slP,       tl_swLo)
+    array.push(tl_slB,       bar_index - tl_right)
+    array.push(tl_slBodyTop, math.max(pO, pC))
+    array.push(tl_slBodyBot, math.min(pO, pC))
     if array.size(tl_slP) > tl_max + 1
         array.shift(tl_slP)
         array.shift(tl_slB)
+        array.shift(tl_slBodyTop)
+        array.shift(tl_slBodyBot)
 
 var line[] tl_resL = array.new_line(0)
 var line[] tl_supL = array.new_line(0)
 var box[]  tl_sdB  = array.new_box(0)
 
 if enableLines
-    // Delete old drawings — use array.get() for element access in v6
+    // Delete old drawings
     for i = 0 to array.size(tl_resL) - 1
         line.delete(array.get(tl_resL, i))
     array.clear(tl_resL)
-
     for i = 0 to array.size(tl_supL) - 1
         line.delete(array.get(tl_supL, i))
     array.clear(tl_supL)
-
     for i = 0 to array.size(tl_sdB) - 1
         box.delete(array.get(tl_sdB, i))
     array.clear(tl_sdB)
 
     // Resistance trendlines
-    // line.new() in v6 uses chart.point objects instead of x1,y1,x2,y2
     shSz = array.size(tl_shP)
     if shSz >= 2
         for i = shSz - 1 to math.max(shSz - tl_max, 1) by -1
@@ -206,10 +220,8 @@ if enableLines
                  extend=extend.right, color=tl_resClr, width=tl_lw, style=line.style_dashed)
             array.push(tl_resL, l)
             if tl_showSD
-                pO   = open[bar_index  - x2]
-                pC   = close[bar_index - x2]
-                bTop = math.max(pO, pC)
-                bBot = math.min(pO, pC)
+                bTop = array.get(tl_shBodyTop, i)
+                bBot = array.get(tl_shBodyBot, i)
                 if bTop - bBot > syminfo.mintick
                     b = box.new(x2 - 1, bBot, x2 + math.round(tl_right * 0.5), bTop,
                          bgcolor=color.new(#EF9A9A, 80), border_color=color.new(#EF9A9A, 40))
@@ -229,10 +241,8 @@ if enableLines
                  extend=extend.right, color=tl_supClr, width=tl_lw, style=line.style_dashed)
             array.push(tl_supL, l)
             if tl_showSD
-                pO   = open[bar_index  - x2]
-                pC   = close[bar_index - x2]
-                bTop = math.max(pO, pC)
-                bBot = math.min(pO, pC)
+                bTop = array.get(tl_slBodyTop, i)
+                bBot = array.get(tl_slBodyBot, i)
                 if bTop - bBot > syminfo.mintick
                     b = box.new(x2 - 1, bBot, x2 + math.round(tl_right * 0.5), bTop,
                          bgcolor=color.new(#80DEEA, 80), border_color=color.new(#80DEEA, 40))
