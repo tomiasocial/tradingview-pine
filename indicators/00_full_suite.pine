@@ -236,9 +236,11 @@ if enableLines
                      color  = tl_supClr, width = tl_lw, style = line.style_dashed)
             else
                 // Converging — calculate exact intersection and stop there
-                tl_xInt = (tl_lo2 - tl_hi2 - tl_sSup * tl_lo2_bar + tl_sRes * tl_hi2_bar) / tl_denom
-                tl_yInt = tl_hi2 + tl_sRes * (tl_xInt - tl_hi2_bar)
+                tl_xInt   = (tl_lo2 - tl_hi2 - tl_sSup * tl_lo2_bar + tl_sRes * tl_hi2_bar) / tl_denom
                 tl_intBar = int(math.round(tl_xInt))
+                // TradingView hard limit: cannot draw more than 500 bars into the future
+                tl_intBar := math.min(tl_intBar, bar_index + 499)
+                tl_yInt   = tl_hi2 + tl_sRes * (tl_intBar - tl_hi2_bar)
                 tl_resLine := line.new(
                      chart.point.from_index(tl_hi2_bar, tl_hi2),
                      chart.point.from_index(tl_intBar,  tl_yInt),
