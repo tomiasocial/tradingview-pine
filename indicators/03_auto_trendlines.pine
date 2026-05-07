@@ -5,7 +5,7 @@
 // ============================================================
 
 //@version=6
-indicator("Auto Trendlines [Suite]", overlay=true, max_lines_count=20, max_boxes_count=20)
+indicator("Auto Trendlines [Suite]", overlay=true)
 
 // ─── INPUTS ────────────────────────────────────────────────
 pivotLeft   = input.int(10,    "Pivot Left Bars",     minval=3, maxval=50, group="Pivot Settings")

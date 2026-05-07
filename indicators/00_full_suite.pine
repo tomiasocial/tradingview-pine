@@ -5,12 +5,7 @@
 // ============================================================
 
 //@version=6
-indicator("Full Suite [Trend + Zone + Lines]",
-     overlay          = true,
-     max_bars_back    = 500,
-     max_boxes_count  = 20,
-     max_lines_count  = 20,
-     max_labels_count = 50)
+indicator("Full Suite [Trend + Zone + Lines]", overlay=true, max_bars_back=500)
 
 // ═══════════════════════════════════════════════════════════
 //  MASTER TOGGLES
