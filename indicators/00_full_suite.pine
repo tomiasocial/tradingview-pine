@@ -46,13 +46,9 @@ if tc_state == 0
 tc_up    = tc_state == 1
 tc_color = tc_up ? tc_colorUp : tc_colorDown
 
+// barcolor() tô màu thẳng vào nến gốc (body + wick + border)
+// KHÔNG dùng plotcandle() — sẽ vẽ thêm lớp nến thứ 2 đè lên
 barcolor(enableTrend ? tc_color : na)
-plotcandle(
-     enableTrend ? open  : na,
-     enableTrend ? high  : na,
-     enableTrend ? low   : na,
-     enableTrend ? close : na,
-     color=tc_color, wickcolor=tc_color, bordercolor=tc_color)
 
 plot(enableTrend and tc_showST ? stLine : na, "Supertrend",
      color    = tc_up ? color.new(tc_colorUp, 60) : color.new(tc_colorDown, 60),
