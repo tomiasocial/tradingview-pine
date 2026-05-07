@@ -1,10 +1,9 @@
 // ============================================================
-// Full Indicator Suite (All-in-One) | v1.6.0 | 2026-05-07
+// Full Indicator Suite (All-in-One) | v1.7.0 | 2026-05-07
 // Author: Project Owner
 // Description: Trend Candles + S/D Zones + Trendlines (convergence-only)
-// Changes v1.6.0: Module 3 → diagonal lines connecting last 2 highs/lows,
-//                 drawn ONLY when lines converge or are parallel (triangle/channel).
-//                 Diverging/fanning patterns are suppressed entirely.
+// Changes v1.7.0: Breakout labels moved 2.5 ATR from candles + dashed arrow line.
+//                 Removed plotshape (labels now handle the signal visually).
 // ============================================================
 
 //@version=6
@@ -140,15 +139,30 @@ if (sz_confirmedUp or sz_confirmedDn) and sz_open
     sz_upCnt   := 0
     sz_dnCnt   := 0
 
-plotshape(sz_confirmedUp, "BreakUp",   shape.triangleup,   location.belowbar, color=sz_upClr, size=size.small)
-plotshape(sz_confirmedDn, "BreakDown", shape.triangledown, location.abovebar, color=sz_dnClr, size=size.small)
-
+// Label placed 2.5 ATR away from candle + dashed arrow line connecting them
 if sz_confirmedUp
-    label.new(bar_index, low  - sz_atr * 0.6, "▲ BREAKOUT",
-         style=label.style_label_up, color=sz_upClr, textcolor=color.white, size=size.small)
+    lbl_y = low - sz_atr * 2.5
+    label.new(bar_index, lbl_y, "▲ BREAKOUT",
+         style     = label.style_label_up,
+         color     = sz_upClr,
+         textcolor = color.white,
+         size      = size.small)
+    line.new(
+         chart.point.from_index(bar_index, low  - sz_atr * 0.2),
+         chart.point.from_index(bar_index, lbl_y + sz_atr * 0.3),
+         color = color.new(sz_upClr, 30), width = 1, style = line.style_dashed)
+
 if sz_confirmedDn
-    label.new(bar_index, high + sz_atr * 0.6, "▼ BREAKDOWN",
-         style=label.style_label_down, color=sz_dnClr, textcolor=color.white, size=size.small)
+    lbl_y = high + sz_atr * 2.5
+    label.new(bar_index, lbl_y, "▼ BREAKDOWN",
+         style     = label.style_label_down,
+         color     = sz_dnClr,
+         textcolor = color.white,
+         size      = size.small)
+    line.new(
+         chart.point.from_index(bar_index, high + sz_atr * 0.2),
+         chart.point.from_index(bar_index, lbl_y - sz_atr * 0.3),
+         color = color.new(sz_dnClr, 30), width = 1, style = line.style_dashed)
 
 alertcondition(sz_confirmedUp, "② Breakout UP",    "Suite: Breakout UP")
 alertcondition(sz_confirmedDn, "② Breakdown DOWN", "Suite: Breakdown DOWN")
