@@ -5,7 +5,7 @@
 // ============================================================
 
 //@version=5
-indicator("Sideway Zone + Breakout [Suite]", overlay=true, max_boxes=10, max_labels=50)
+indicator("Sideway Zone + Breakout [Suite]", overlay=true, max_boxes_count=10, max_labels_count=50)
 
 // ─── INPUTS ────────────────────────────────────────────────
 zoneLookback  = input.int(20,   "Zone Lookback Bars",         minval=5,  maxval=100, group="Zone Detection")
