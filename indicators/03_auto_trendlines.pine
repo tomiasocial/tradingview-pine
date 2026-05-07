@@ -1,157 +1,123 @@
 // ============================================================
-// Auto Trendlines + S/D Zones | v0.3.0 | 2026-05-07
+// Auto Trendlines + S/D Zones | v0.3.1 | 2026-05-07
 // Author: Project Owner
 // Description: Auto-draws support/resistance trendlines from pivot swings
 // ============================================================
 
-//@version=5
+//@version=6
 indicator("Auto Trendlines [Suite]", overlay=true, max_lines_count=20, max_boxes_count=20)
 
 // ─── INPUTS ────────────────────────────────────────────────
-pivotLeft   = input.int(10, "Pivot Left Bars",    minval=3, maxval=50, group="Pivot Settings")
-pivotRight  = input.int(10, "Pivot Right Bars",   minval=3, maxval=50, group="Pivot Settings")
-maxLines    = input.int(2,  "Max Trendlines Each",minval=1, maxval=5,  group="Pivot Settings")
-
-showSDZones = input.bool(true, "Show S/D Zone Boxes", group="Display")
+pivotLeft   = input.int(10,    "Pivot Left Bars",     minval=3, maxval=50, group="Pivot Settings")
+pivotRight  = input.int(10,    "Pivot Right Bars",    minval=3, maxval=50, group="Pivot Settings")
+maxLines    = input.int(2,     "Max Trendlines Each", minval=1, maxval=5,  group="Pivot Settings")
+showSDZones = input.bool(true, "Show S/D Zone Boxes",                      group="Display")
 
 resColor    = input.color(#EF9A9A, "Resistance Line Color", group="Colors")
 supColor    = input.color(#80DEEA, "Support Line Color",    group="Colors")
-lineWidth   = input.int(2,         "Line Width", minval=1, maxval=4,   group="Colors")
+lineWidth   = input.int(2,         "Line Width", minval=1,  maxval=4,      group="Colors")
 
-alertTouch  = input.bool(true, "Alert on Price Touch", group="Alerts")
-touchBuffer = input.float(0.1, "Touch Sensitivity %",  minval=0.01, maxval=1.0, step=0.01, group="Alerts")
+alertTouch  = input.bool(true,  "Alert on Price Touch",  group="Alerts")
+touchBuffer = input.float(0.1,  "Touch Sensitivity %",   minval=0.01, maxval=1.0, step=0.01, group="Alerts")
 
 // ─── PIVOT DETECTION ────────────────────────────────────────
-// ta.pivothigh / ta.pivotlow return the pivot price when confirmed,
-// na otherwise. They look back `right` bars so signal appears `right` bars late.
 swingHigh = ta.pivothigh(high, pivotLeft, pivotRight)
 swingLow  = ta.pivotlow(low,  pivotLeft, pivotRight)
 
-// ─── TRENDLINE STATE ─────────────────────────────────────────
-// Store last 2 swing highs and lows (price + bar index)
+// ─── PIVOT STORAGE ──────────────────────────────────────────
 var float[] shPrice = array.new_float(0)
 var int[]   shBar   = array.new_int(0)
 var float[] slPrice = array.new_float(0)
 var int[]   slBar   = array.new_int(0)
 
-// Collect confirmed swing highs
 if not na(swingHigh)
-    // Pivot confirmed `pivotRight` bars ago
-    confirmedBar = bar_index - pivotRight
     array.push(shPrice, swingHigh)
-    array.push(shBar,   confirmedBar)
-    // Keep only the last (maxLines + 1) entries
+    array.push(shBar,   bar_index - pivotRight)
     if array.size(shPrice) > maxLines + 1
         array.shift(shPrice)
         array.shift(shBar)
 
-// Collect confirmed swing lows
 if not na(swingLow)
-    confirmedBar = bar_index - pivotRight
     array.push(slPrice, swingLow)
-    array.push(slBar,   confirmedBar)
+    array.push(slBar,   bar_index - pivotRight)
     if array.size(slPrice) > maxLines + 1
         array.shift(slPrice)
         array.shift(slBar)
 
-// ─── DRAW TRENDLINES ────────────────────────────────────────
-// We redraw lines every bar for simplicity (delete old, draw new)
-// Limited to 2 resistance + 2 support lines at most.
-
+// ─── LINE & BOX ARRAYS ──────────────────────────────────────
 var line[] resLines = array.new_line(0)
 var line[] supLines = array.new_line(0)
 var box[]  sdBoxes  = array.new_box(0)
 
-// Helper: delete all lines/boxes in array
-deleteLines(lines) =>
-    for i = 0 to array.size(lines) - 1
-        line.delete(array.get(lines, i))
-    array.clear(lines)
+// Clear previous drawings each bar
+for i = 0 to array.size(resLines) - 1
+    line.delete(resLines[i])
+array.clear(resLines)
 
-deleteBoxes(boxes) =>
-    for i = 0 to array.size(boxes) - 1
-        box.delete(array.get(boxes, i))
-    array.clear(boxes)
+for i = 0 to array.size(supLines) - 1
+    line.delete(supLines[i])
+array.clear(supLines)
 
-deleteLines(resLines)
-deleteLines(supLines)
-deleteBoxes(sdBoxes)
+for i = 0 to array.size(sdBoxes) - 1
+    box.delete(sdBoxes[i])
+array.clear(sdBoxes)
 
-// Draw resistance trendlines (connect consecutive swing highs)
-shSize = array.size(shPrice)
-if shSize >= 2
-    for i = shSize - 1 to math.max(shSize - maxLines, 1) by -1
-        p1 = array.get(shPrice, i)
-        b1 = array.get(shBar,   i)
-        p2 = array.get(shPrice, i - 1)
-        b2 = array.get(shBar,   i - 1)
-        // Extend line to the right
-        l = line.new(b2, p2, b1, p1,
-             extend    = extend.right,
-             color     = resColor,
-             width     = lineWidth,
-             style     = line.style_dashed)
+// ─── DRAW RESISTANCE TRENDLINES ─────────────────────────────
+shSz = array.size(shPrice)
+if shSz >= 2
+    for i = shSz - 1 to math.max(shSz - maxLines, 1) by -1
+        l = line.new(
+             shBar[i - 1], shPrice[i - 1],
+             shBar[i],     shPrice[i],
+             extend      = extend.right,
+             color       = resColor,
+             width       = lineWidth,
+             style       = line.style_dashed)
         array.push(resLines, l)
-        // S/D box at the more recent swing high candle body
         if showSDZones
-            pivBar  = b1
-            pivHigh = array.get(shPrice, i)  // the high pivot
-            // Use open/close of that bar for body range
-            pivOpen  = open[bar_index - pivBar]
-            pivClose = close[bar_index - pivBar]
-            bodyTop  = math.max(pivOpen, pivClose)
-            bodyBot  = math.min(pivOpen, pivClose)
-            b = box.new(pivBar - 1, bodyBot, pivBar + pivotRight, bodyTop,
+            pBar = shBar[i]
+            pO   = open[bar_index  - pBar]
+            pC   = close[bar_index - pBar]
+            b    = box.new(pBar - 1, math.min(pO, pC), pBar + pivotRight, math.max(pO, pC),
                  bgcolor      = color.new(#FFA726, 80),
-                 border_color = color.new(#FFA726, 30),
-                 border_width = 1)
+                 border_color = color.new(#FFA726, 30))
             array.push(sdBoxes, b)
 
-// Draw support trendlines (connect consecutive swing lows)
-slSize = array.size(slPrice)
-if slSize >= 2
-    for i = slSize - 1 to math.max(slSize - maxLines, 1) by -1
-        p1 = array.get(slPrice, i)
-        b1 = array.get(slBar,   i)
-        p2 = array.get(slPrice, i - 1)
-        b2 = array.get(slBar,   i - 1)
-        l = line.new(b2, p2, b1, p1,
-             extend    = extend.right,
-             color     = supColor,
-             width     = lineWidth,
-             style     = line.style_dashed)
+// ─── DRAW SUPPORT TRENDLINES ────────────────────────────────
+slSz = array.size(slPrice)
+if slSz >= 2
+    for i = slSz - 1 to math.max(slSz - maxLines, 1) by -1
+        l = line.new(
+             slBar[i - 1], slPrice[i - 1],
+             slBar[i],     slPrice[i],
+             extend      = extend.right,
+             color       = supColor,
+             width       = lineWidth,
+             style       = line.style_dashed)
         array.push(supLines, l)
-        // S/D box at the more recent swing low candle body
         if showSDZones
-            pivBar  = b1
-            pivOpen  = open[bar_index - pivBar]
-            pivClose = close[bar_index - pivBar]
-            bodyTop  = math.max(pivOpen, pivClose)
-            bodyBot  = math.min(pivOpen, pivClose)
-            b = box.new(pivBar - 1, bodyBot, pivBar + pivotRight, bodyTop,
+            pBar = slBar[i]
+            pO   = open[bar_index  - pBar]
+            pC   = close[bar_index - pBar]
+            b    = box.new(pBar - 1, math.min(pO, pC), pBar + pivotRight, math.max(pO, pC),
                  bgcolor      = color.new(#FFA726, 80),
-                 border_color = color.new(#FFA726, 30),
-                 border_width = 1)
+                 border_color = color.new(#FFA726, 30))
             array.push(sdBoxes, b)
 
 // ─── TOUCH ALERTS ───────────────────────────────────────────
-// Check if price is near the most recent trendline value
-touchZone = close * touchBuffer / 100
-
+touchZone      = close * touchBuffer / 100
 nearResistance = false
 nearSupport    = false
 
 if array.size(resLines) > 0
-    recentRes = array.get(resLines, array.size(resLines) - 1)
-    resVal = line.get_price(recentRes, bar_index)
-    if not na(resVal)
-        nearResistance := math.abs(close - resVal) <= touchZone
+    rv = line.get_price(resLines[array.size(resLines) - 1], bar_index)
+    if not na(rv)
+        nearResistance := math.abs(close - rv) <= touchZone
 
 if array.size(supLines) > 0
-    recentSup = array.get(supLines, array.size(supLines) - 1)
-    supVal = line.get_price(recentSup, bar_index)
-    if not na(supVal)
-        nearSupport := math.abs(close - supVal) <= touchZone
+    sv = line.get_price(supLines[array.size(supLines) - 1], bar_index)
+    if not na(sv)
+        nearSupport := math.abs(close - sv) <= touchZone
 
 // ─── ALERTS ────────────────────────────────────────────────
 alertcondition(alertTouch and nearSupport,    "Touch Support",    "Auto Trendlines: Price touching support trendline")

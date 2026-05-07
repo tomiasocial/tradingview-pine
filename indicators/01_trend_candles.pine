@@ -1,45 +1,40 @@
 // ============================================================
-// Trend Candles | v0.1.0 | 2026-05-07
+// Trend Candles | v0.1.1 | 2026-05-07
 // Author: Project Owner
 // Description: Color ALL candles by Supertrend direction (solid green/red)
 // ============================================================
 
-//@version=5
+//@version=6
 indicator("Trend Candles [Suite]", overlay=true, max_bars_back=500)
 
 // ─── INPUTS ────────────────────────────────────────────────
-atrPeriod    = input.int(10,   "ATR Period",       minval=3,   maxval=50,  group="Supertrend Settings")
-atrMult      = input.float(2.0,"ATR Multiplier",   minval=0.5, maxval=5.0, step=0.1, group="Supertrend Settings")
-confirmBars  = input.int(1,    "Confirmation Bars", minval=1,  maxval=5,   group="Supertrend Settings")
+atrPeriod    = input.int(10,   "ATR Period",        minval=3,   maxval=50,  group="Supertrend Settings")
+atrMult      = input.float(2.0,"ATR Multiplier",    minval=0.5, maxval=5.0, step=0.1, group="Supertrend Settings")
+confirmBars  = input.int(1,    "Confirmation Bars", minval=1,   maxval=5,   group="Supertrend Settings")
 
-colorUp      = input.color(#00C853, "Uptrend Color",   group="Colors")
-colorDown    = input.color(#FF1744, "Downtrend Color", group="Colors")
-showBaseline = input.bool(true, "Show Supertrend Line", group="Display")
+colorUp      = input.color(#00C853, "Uptrend Color",        group="Colors")
+colorDown    = input.color(#FF1744, "Downtrend Color",      group="Colors")
+showBaseline = input.bool(true,     "Show Supertrend Line", group="Display")
 
 // ─── SUPERTREND CALCULATION ─────────────────────────────────
 [stLine, stDir] = ta.supertrend(atrMult, atrPeriod)
 // stDir: -1 = uptrend, +1 = downtrend (TradingView convention)
 
 // ─── TREND CONFIRMATION (avoid whipsaw) ────────────────────
-// Wait for `confirmBars` consecutive bars in the same direction
-var int   trendState  = 0   // 1 = confirmed UP, -1 = confirmed DOWN
-var int   barCount    = 0   // count of bars holding same raw direction
+var int trendState = 0
+var int barCount   = 0
 
 rawDir = stDir == -1 ? 1 : -1  // normalize: 1=up, -1=down
 
 if rawDir == trendState
-    // Still in same confirmed trend — keep counting
     barCount := barCount + 1
 else
-    // Direction flipped in raw signal — start counter
     if barCount >= confirmBars
-        // Flip confirmed trend when enough bars accumulated
         trendState := rawDir
         barCount   := 1
     else
         barCount := barCount + 1
 
-// First bar initialisation
 if trendState == 0
     trendState := rawDir
     barCount   := 1
@@ -47,19 +42,13 @@ if trendState == 0
 isUptrend   = trendState == 1
 isDowntrend = trendState == -1
 
-// ─── CANDLE REPAINTING ──────────────────────────────────────
-// Override default candle colors based on confirmed trend
+// ─── CANDLE COLORING ────────────────────────────────────────
 trendColor = isUptrend ? colorUp : colorDown
 
-// Candle body
 barcolor(trendColor)
 
-// Wicks — plotcandle gives full control over wick color
 plotcandle(
-     open,
-     high,
-     low,
-     close,
+     open,  high,  low,  close,
      color       = trendColor,
      wickcolor   = trendColor,
      bordercolor = trendColor
@@ -70,7 +59,6 @@ stColor = showBaseline ? (isUptrend ? color.new(colorUp, 60) : color.new(colorDo
 plot(showBaseline ? stLine : na, "Supertrend", color=stColor, linewidth=2)
 
 // ─── ALERTS ────────────────────────────────────────────────
-// Detect confirmed trend flips
 trendFlippedUp   = isUptrend   and not isUptrend[1]
 trendFlippedDown = isDowntrend and not isDowntrend[1]
 

@@ -1,68 +1,55 @@
 // ============================================================
-// Sideway Zone + Breakout Arrows | v0.2.0 | 2026-05-07
+// Sideway Zone + Breakout Arrows | v0.2.1 | 2026-05-07
 // Author: Project Owner
 // Description: Detects consolidation ranges and signals breakouts
 // ============================================================
 
-//@version=5
+//@version=6
 indicator("Sideway Zone + Breakout [Suite]", overlay=true, max_boxes_count=10, max_labels_count=50)
 
 // ─── INPUTS ────────────────────────────────────────────────
-zoneLookback  = input.int(20,   "Zone Lookback Bars",         minval=5,  maxval=100, group="Zone Detection")
-atrThreshold  = input.float(3.0,"Sideway ATR Multiplier",     minval=0.5, maxval=10, step=0.1, group="Zone Detection")
-zoneBufferPct = input.float(0.3,"Zone Buffer %",              minval=0,  maxval=2.0, step=0.1, group="Zone Detection")
-maxBoxes      = input.int(3,    "Max Boxes to Show",          minval=1,  maxval=5,   group="Zone Detection")
+zoneLookback  = input.int(20,   "Zone Lookback Bars",         minval=5,   maxval=100, group="Zone Detection")
+atrThreshold  = input.float(3.0,"Sideway ATR Multiplier",     minval=0.5, maxval=10,  step=0.1, group="Zone Detection")
+zoneBufferPct = input.float(0.3,"Zone Buffer %",              minval=0,   maxval=2.0, step=0.1, group="Zone Detection")
 
-confirmBars   = input.int(2,    "Breakout Confirmation Bars", minval=1,  maxval=5,   group="Breakout")
+confirmBars   = input.int(2,    "Breakout Confirmation Bars", minval=1,   maxval=5,   group="Breakout")
 
-zoneColor     = input.color(color.new(#FFA726, 75), "Zone Fill Color",       group="Colors")
-arrowUpColor  = input.color(#00E676,               "Arrow Up Color",         group="Colors")
-arrowDnColor  = input.color(#FF1744,               "Arrow Down Color",       group="Colors")
+zoneColor    = input.color(color.new(#FFA726, 75), "Zone Fill Color",  group="Colors")
+arrowUpColor = input.color(#00E676,               "Arrow Up Color",   group="Colors")
+arrowDnColor = input.color(#FF1744,               "Arrow Down Color", group="Colors")
 
 // ─── HELPERS ────────────────────────────────────────────────
-atrVal = ta.atr(zoneLookback)
-
-// Range of last N bars
+atrVal    = ta.atr(zoneLookback)
 rangeHigh = ta.highest(high, zoneLookback)
 rangeLow  = ta.lowest(low,  zoneLookback)
 rangeSize = rangeHigh - rangeLow
-
 buffer    = close * zoneBufferPct / 100
 
 // ─── SIDEWAY DETECTION ──────────────────────────────────────
 isSideway = rangeSize < atrVal * atrThreshold
 
 // ─── ZONE STATE ─────────────────────────────────────────────
-var box    activeBox      = na      // currently open box
-var float  zoneTop        = na
-var float  zoneBot        = na
-var bool   boxOpen        = false
-var int    boxCount       = 0       // total boxes drawn this session
-var bool   awaitingBreak  = false   // true once a zone is established
+var box   activeBox = na
+var float zoneTop   = na
+var float zoneBot   = na
+var bool  boxOpen   = false
+var int   upCount   = 0
+var int   dnCount   = 0
 
-// Track confirmed breakout bars
-var int    upCount        = 0
-var int    dnCount        = 0
-
-// Zone opens when we first detect sideway conditions
 if isSideway and not boxOpen
-    zoneTop  := rangeHigh + buffer
-    zoneBot  := rangeLow  - buffer
-    // Create new box starting from N bars ago to current bar
+    zoneTop   := rangeHigh + buffer
+    zoneBot   := rangeLow  - buffer
     activeBox := box.new(
          bar_index - zoneLookback, zoneBot,
          bar_index, zoneTop,
-         bgcolor    = zoneColor,
+         bgcolor      = zoneColor,
          border_color = color.new(#FFA726, 20),
-         border_width = 1
-     )
-    boxOpen       := true
-    awaitingBreak := true
-    boxCount      := boxCount + 1
-    upCount       := 0
-    dnCount       := 0
+         border_width = 1)
+    boxOpen := true
+    upCount := 0
+    dnCount := 0
 
-// Extend active box rightward while price stays inside
+// Extend box rightward while price stays inside
 if boxOpen and not na(activeBox)
     if close >= zoneBot and close <= zoneTop
         box.set_right(activeBox, bar_index)
@@ -71,7 +58,6 @@ if boxOpen and not na(activeBox)
 brokeUp = boxOpen and close > zoneTop
 brokeDn = boxOpen and close < zoneBot
 
-// Count consecutive closes outside zone
 if brokeUp
     upCount := upCount + 1
     dnCount := 0
@@ -82,17 +68,14 @@ else
     upCount := 0
     dnCount := 0
 
-// Confirmed breakout
 breakoutUp = brokeUp and upCount >= confirmBars
 breakoutDn = brokeDn and dnCount >= confirmBars
 
-// Close box on confirmed break
 if (breakoutUp or breakoutDn) and boxOpen
     box.set_right(activeBox, bar_index)
-    boxOpen       := false
-    awaitingBreak := false
-    upCount       := 0
-    dnCount       := 0
+    boxOpen := false
+    upCount := 0
+    dnCount := 0
 
 // ─── ARROWS & LABELS ────────────────────────────────────────
 if breakoutUp
@@ -116,5 +99,5 @@ if breakoutDn
          color = arrowDnColor, size = size.small)
 
 // ─── ALERTS ────────────────────────────────────────────────
-alertcondition(breakoutUp, "Breakout UP",   "Sideway Zone: Breakout UP confirmed")
-alertcondition(breakoutDn, "Breakdown DOWN","Sideway Zone: Breakdown DOWN confirmed")
+alertcondition(breakoutUp, "Breakout UP",    "Sideway Zone: Breakout UP confirmed")
+alertcondition(breakoutDn, "Breakdown DOWN", "Sideway Zone: Breakdown DOWN confirmed")

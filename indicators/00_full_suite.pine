@@ -1,13 +1,13 @@
 // ============================================================
-// Full Indicator Suite (All-in-One) | v1.0.0 | 2026-05-07
+// Full Indicator Suite (All-in-One) | v1.0.1 | 2026-05-07
 // Author: Project Owner
 // Description: Trend Candles + Sideway Zone + Auto Trendlines combined
 // ============================================================
 
-//@version=5
+//@version=6
 indicator("Full Suite [Trend + Zone + Lines]",
-     overlay        = true,
-     max_bars_back  = 500,
+     overlay          = true,
+     max_bars_back    = 500,
      max_boxes_count  = 20,
      max_lines_count  = 20,
      max_labels_count = 50)
@@ -15,25 +15,24 @@ indicator("Full Suite [Trend + Zone + Lines]",
 // ═══════════════════════════════════════════════════════════
 //  MASTER TOGGLES
 // ═══════════════════════════════════════════════════════════
-enableTrend   = input.bool(true, "Enable Trend Candles",          group="═ Master Toggles ═")
-enableZone    = input.bool(true, "Enable Sideway Zone + Breakout", group="═ Master Toggles ═")
-enableLines   = input.bool(true, "Enable Auto Trendlines",        group="═ Master Toggles ═")
+enableTrend = input.bool(true, "Enable Trend Candles",           group="═ Master Toggles ═")
+enableZone  = input.bool(true, "Enable Sideway Zone + Breakout", group="═ Master Toggles ═")
+enableLines = input.bool(true, "Enable Auto Trendlines",         group="═ Master Toggles ═")
 
 // ═══════════════════════════════════════════════════════════
 //  MODULE 1 — TREND CANDLES
 // ═══════════════════════════════════════════════════════════
-tc_atrPeriod    = input.int(10,    "ATR Period",            minval=3,   maxval=50,  group="① Trend Candles")
-tc_atrMult      = input.float(2.0, "ATR Multiplier",        minval=0.5, maxval=5.0, step=0.1, group="① Trend Candles")
-tc_confirmBars  = input.int(1,     "Confirmation Bars",     minval=1,   maxval=5,   group="① Trend Candles")
-tc_colorUp      = input.color(#00C853, "Uptrend Color",                             group="① Trend Candles")
-tc_colorDown    = input.color(#FF1744, "Downtrend Color",                           group="① Trend Candles")
-tc_showBaseline = input.bool(true,  "Show Supertrend Line",                         group="① Trend Candles")
+tc_atrPeriod    = input.int(10,    "ATR Period",           minval=3,   maxval=50,  group="① Trend Candles")
+tc_atrMult      = input.float(2.0, "ATR Multiplier",       minval=0.5, maxval=5.0, step=0.1, group="① Trend Candles")
+tc_confirmBars  = input.int(1,     "Confirmation Bars",    minval=1,   maxval=5,   group="① Trend Candles")
+tc_colorUp      = input.color(#00C853, "Uptrend Color",                            group="① Trend Candles")
+tc_colorDown    = input.color(#FF1744, "Downtrend Color",                          group="① Trend Candles")
+tc_showBaseline = input.bool(true,     "Show Supertrend Line",                     group="① Trend Candles")
 
-// Supertrend
 [stLine, stDir] = ta.supertrend(tc_atrMult, tc_atrPeriod)
 
-var int  tc_trendState = 0
-var int  tc_barCount   = 0
+var int tc_trendState = 0
+var int tc_barCount   = 0
 tc_rawDir = stDir == -1 ? 1 : -1
 
 if tc_rawDir == tc_trendState
@@ -53,7 +52,6 @@ tc_isUp   = tc_trendState == 1
 tc_isDown = tc_trendState == -1
 tc_color  = tc_isUp ? tc_colorUp : tc_colorDown
 
-// Candle override
 barcolor(enableTrend ? tc_color : na)
 plotcandle(
      enableTrend ? open  : na,
@@ -62,14 +60,11 @@ plotcandle(
      enableTrend ? close : na,
      color       = tc_color,
      wickcolor   = tc_color,
-     bordercolor = tc_color
- )
+     bordercolor = tc_color)
 
-// Supertrend line
 stPlotColor = tc_showBaseline ? (tc_isUp ? color.new(tc_colorUp, 60) : color.new(tc_colorDown, 60)) : na
 plot(enableTrend and tc_showBaseline ? stLine : na, "Supertrend", color=stPlotColor, linewidth=2)
 
-// Trend alerts
 tc_flipUp   = tc_isUp   and not tc_isUp[1]
 tc_flipDown = tc_isDown and not tc_isDown[1]
 alertcondition(enableTrend and tc_flipUp,   "① Trend → UP",   "Suite: Trend changed to UP")
@@ -78,13 +73,13 @@ alertcondition(enableTrend and tc_flipDown, "① Trend → DOWN", "Suite: Trend 
 // ═══════════════════════════════════════════════════════════
 //  MODULE 2 — SIDEWAY ZONE + BREAKOUT
 // ═══════════════════════════════════════════════════════════
-sz_lookback     = input.int(20,    "Zone Lookback Bars",         minval=5,  maxval=100, group="② Sideway Zone")
-sz_atrThresh    = input.float(3.0, "Sideway ATR Multiplier",     minval=0.5, maxval=10, step=0.1, group="② Sideway Zone")
-sz_bufferPct    = input.float(0.3, "Zone Buffer %",              minval=0,  maxval=2.0, step=0.1, group="② Sideway Zone")
-sz_confirmBars  = input.int(2,     "Breakout Confirmation Bars", minval=1,  maxval=5,   group="② Sideway Zone")
-sz_zoneColor    = input.color(color.new(#FFA726, 75), "Zone Color",         group="② Sideway Zone")
-sz_arrowUp      = input.color(#00E676,               "Arrow Up Color",     group="② Sideway Zone")
-sz_arrowDn      = input.color(#FF1744,               "Arrow Down Color",   group="② Sideway Zone")
+sz_lookback    = input.int(20,    "Zone Lookback Bars",         minval=5,   maxval=100, group="② Sideway Zone")
+sz_atrThresh   = input.float(3.0, "Sideway ATR Multiplier",     minval=0.5, maxval=10,  step=0.1, group="② Sideway Zone")
+sz_bufferPct   = input.float(0.3, "Zone Buffer %",              minval=0,   maxval=2.0, step=0.1, group="② Sideway Zone")
+sz_confirmBars = input.int(2,     "Breakout Confirmation Bars", minval=1,   maxval=5,   group="② Sideway Zone")
+sz_zoneColor   = input.color(color.new(#FFA726, 75), "Zone Color",       group="② Sideway Zone")
+sz_arrowUp     = input.color(#00E676,               "Arrow Up Color",   group="② Sideway Zone")
+sz_arrowDn     = input.color(#FF1744,               "Arrow Down Color", group="② Sideway Zone")
 
 sz_atr       = ta.atr(sz_lookback)
 sz_hi        = ta.highest(high, sz_lookback)
@@ -109,9 +104,9 @@ if enableZone and sz_isSideway and not sz_boxOpen
          bgcolor      = sz_zoneColor,
          border_color = color.new(#FFA726, 20),
          border_width = 1)
-    sz_boxOpen  := true
-    sz_upCount  := 0
-    sz_dnCount  := 0
+    sz_boxOpen := true
+    sz_upCount := 0
+    sz_dnCount := 0
 
 if enableZone and sz_boxOpen and not na(sz_activeBox)
     if close >= sz_zoneBot and close <= sz_zoneTop
@@ -145,19 +140,19 @@ if sz_confirmedDn
     label.new(bar_index, high + sz_atr * 0.5, "▼ BREAKDOWN",
          style=label.style_label_down, color=sz_arrowDn, textcolor=color.white, size=size.small)
 
-alertcondition(sz_confirmedUp, "② Breakout UP",   "Suite: Breakout UP confirmed")
-alertcondition(sz_confirmedDn, "② Breakdown DOWN","Suite: Breakdown DOWN confirmed")
+alertcondition(sz_confirmedUp, "② Breakout UP",    "Suite: Breakout UP confirmed")
+alertcondition(sz_confirmedDn, "② Breakdown DOWN", "Suite: Breakdown DOWN confirmed")
 
 // ═══════════════════════════════════════════════════════════
 //  MODULE 3 — AUTO TRENDLINES
 // ═══════════════════════════════════════════════════════════
-tl_pivLeft   = input.int(10,   "Pivot Left Bars",    minval=3, maxval=50, group="③ Auto Trendlines")
-tl_pivRight  = input.int(10,   "Pivot Right Bars",   minval=3, maxval=50, group="③ Auto Trendlines")
-tl_maxLines  = input.int(2,    "Max Lines Each Side",minval=1, maxval=5,  group="③ Auto Trendlines")
-tl_showSD    = input.bool(true,"Show S/D Boxes",                          group="③ Auto Trendlines")
-tl_resColor  = input.color(#EF9A9A, "Resistance Color", group="③ Auto Trendlines")
-tl_supColor  = input.color(#80DEEA, "Support Color",    group="③ Auto Trendlines")
-tl_lineWidth = input.int(2,    "Line Width", minval=1, maxval=4,          group="③ Auto Trendlines")
+tl_pivLeft  = input.int(10,    "Pivot Left Bars",     minval=3, maxval=50, group="③ Auto Trendlines")
+tl_pivRight = input.int(10,    "Pivot Right Bars",    minval=3, maxval=50, group="③ Auto Trendlines")
+tl_maxLines = input.int(2,     "Max Lines Each Side", minval=1, maxval=5,  group="③ Auto Trendlines")
+tl_showSD   = input.bool(true, "Show S/D Boxes",                           group="③ Auto Trendlines")
+tl_resColor = input.color(#EF9A9A, "Resistance Color", group="③ Auto Trendlines")
+tl_supColor = input.color(#80DEEA, "Support Color",    group="③ Auto Trendlines")
+tl_lineW    = input.int(2,         "Line Width", minval=1, maxval=4,       group="③ Auto Trendlines")
 
 tl_swingHi = ta.pivothigh(high, tl_pivLeft, tl_pivRight)
 tl_swingLo = ta.pivotlow(low,  tl_pivLeft, tl_pivRight)
@@ -186,65 +181,55 @@ var line[] tl_supL = array.new_line(0)
 var box[]  tl_sdB  = array.new_box(0)
 
 if enableLines
-    // Clear previous drawings
     for i = 0 to array.size(tl_resL) - 1
-        line.delete(array.get(tl_resL, i))
+        line.delete(tl_resL[i])
     array.clear(tl_resL)
     for i = 0 to array.size(tl_supL) - 1
-        line.delete(array.get(tl_supL, i))
+        line.delete(tl_supL[i])
     array.clear(tl_supL)
     for i = 0 to array.size(tl_sdB) - 1
-        box.delete(array.get(tl_sdB, i))
+        box.delete(tl_sdB[i])
     array.clear(tl_sdB)
 
-    // Resistance lines
     shSz = array.size(tl_shP)
     if shSz >= 2
         for i = shSz - 1 to math.max(shSz - tl_maxLines, 1) by -1
-            l = line.new(
-                 array.get(tl_shB, i-1), array.get(tl_shP, i-1),
-                 array.get(tl_shB, i),   array.get(tl_shP, i),
-                 extend=extend.right, color=tl_resColor,
-                 width=tl_lineWidth, style=line.style_dashed)
+            l = line.new(tl_shB[i-1], tl_shP[i-1], tl_shB[i], tl_shP[i],
+                 extend=extend.right, color=tl_resColor, width=tl_lineW, style=line.style_dashed)
             array.push(tl_resL, l)
             if tl_showSD
-                pBar = array.get(tl_shB, i)
-                pO   = open[bar_index - pBar]
+                pBar = tl_shB[i]
+                pO   = open[bar_index  - pBar]
                 pC   = close[bar_index - pBar]
                 b    = box.new(pBar-1, math.min(pO,pC), pBar+tl_pivRight, math.max(pO,pC),
                      bgcolor=color.new(#FFA726, 80), border_color=color.new(#FFA726,30))
                 array.push(tl_sdB, b)
 
-    // Support lines
     slSz = array.size(tl_slP)
     if slSz >= 2
         for i = slSz - 1 to math.max(slSz - tl_maxLines, 1) by -1
-            l = line.new(
-                 array.get(tl_slB, i-1), array.get(tl_slP, i-1),
-                 array.get(tl_slB, i),   array.get(tl_slP, i),
-                 extend=extend.right, color=tl_supColor,
-                 width=tl_lineWidth, style=line.style_dashed)
+            l = line.new(tl_slB[i-1], tl_slP[i-1], tl_slB[i], tl_slP[i],
+                 extend=extend.right, color=tl_supColor, width=tl_lineW, style=line.style_dashed)
             array.push(tl_supL, l)
             if tl_showSD
-                pBar = array.get(tl_slB, i)
-                pO   = open[bar_index - pBar]
+                pBar = tl_slB[i]
+                pO   = open[bar_index  - pBar]
                 pC   = close[bar_index - pBar]
                 b    = box.new(pBar-1, math.min(pO,pC), pBar+tl_pivRight, math.max(pO,pC),
                      bgcolor=color.new(#FFA726, 80), border_color=color.new(#FFA726,30))
                 array.push(tl_sdB, b)
 
-// Touch alerts (compare close to most recent line value)
 tl_touchBuf = close * 0.1 / 100
 tl_nearRes  = false
 tl_nearSup  = false
 
 if enableLines and array.size(tl_resL) > 0
-    rv = line.get_price(array.get(tl_resL, array.size(tl_resL)-1), bar_index)
+    rv = line.get_price(tl_resL[array.size(tl_resL) - 1], bar_index)
     if not na(rv)
         tl_nearRes := math.abs(close - rv) <= tl_touchBuf
 
 if enableLines and array.size(tl_supL) > 0
-    sv = line.get_price(array.get(tl_supL, array.size(tl_supL)-1), bar_index)
+    sv = line.get_price(tl_supL[array.size(tl_supL) - 1], bar_index)
     if not na(sv)
         tl_nearSup := math.abs(close - sv) <= tl_touchBuf
 
