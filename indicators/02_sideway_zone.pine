@@ -78,6 +78,10 @@ if (breakoutUp or breakoutDn) and boxOpen
     dnCount := 0
 
 // ─── ARROWS & LABELS ────────────────────────────────────────
+// plotshape must be at global scope in Pine v6 — use boolean condition
+plotshape(breakoutUp, "BreakUp", shape.triangleup,   location.belowbar, color=arrowUpColor, size=size.small)
+plotshape(breakoutDn, "BreakDn", shape.triangledown, location.abovebar, color=arrowDnColor, size=size.small)
+
 if breakoutUp
     label.new(bar_index, low - atrVal * 0.5,
          "▲ BREAKOUT",
@@ -85,8 +89,6 @@ if breakoutUp
          color     = arrowUpColor,
          textcolor = color.white,
          size      = size.small)
-    plotshape(true, "BreakUp", shape.triangleup, location.belowbar,
-         color = arrowUpColor, size = size.small)
 
 if breakoutDn
     label.new(bar_index, high + atrVal * 0.5,
@@ -95,8 +97,6 @@ if breakoutDn
          color     = arrowDnColor,
          textcolor = color.white,
          size      = size.small)
-    plotshape(true, "BreakDn", shape.triangledown, location.abovebar,
-         color = arrowDnColor, size = size.small)
 
 // ─── ALERTS ────────────────────────────────────────────────
 alertcondition(breakoutUp, "Breakout UP",    "Sideway Zone: Breakout UP confirmed")
