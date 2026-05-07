@@ -1,9 +1,10 @@
 // ============================================================
-// Full Indicator Suite (All-in-One) | v1.5.0 | 2026-05-07
+// Full Indicator Suite (All-in-One) | v1.6.0 | 2026-05-07
 // Author: Project Owner
-// Description: Trend Candles + S/D Zones (dual box) + Horizontal S/R Lines
-// Changes v1.5.0: Module 2 → 2 thin boxes (resistance top + support bottom)
-//                 Module 3 → horizontal dashed lines at pivot levels (no diagonal)
+// Description: Trend Candles + S/D Zones + Trendlines (convergence-only)
+// Changes v1.6.0: Module 3 → diagonal lines connecting last 2 highs/lows,
+//                 drawn ONLY when lines converge or are parallel (triangle/channel).
+//                 Diverging/fanning patterns are suppressed entirely.
 // ============================================================
 
 //@version=6
@@ -14,7 +15,7 @@ indicator("Full Suite [Trend + Zone + Lines]", overlay=true, max_bars_back=500)
 // ═══════════════════════════════════════════════════════════
 enableTrend = input.bool(true, "① Trend Candles ON",  group="═ Master Toggles ═")
 enableZone  = input.bool(true, "② S/D Zones ON",      group="═ Master Toggles ═")
-enableLines = input.bool(true, "③ S/R Lines ON",      group="═ Master Toggles ═")
+enableLines = input.bool(true, "③ Trendlines ON",     group="═ Master Toggles ═")
 
 // ═══════════════════════════════════════════════════════════
 //  MODULE 1 — TREND CANDLES
@@ -59,10 +60,8 @@ alertcondition(enableTrend and not tc_up and tc_up[1],  "① Trend → DOWN", "S
 
 // ═══════════════════════════════════════════════════════════
 //  MODULE 2 — S/D ZONES
-//  Two thin boxes at zone extremes:
-//    • Resistance box = thin band at the TOP  of the detected range
-//    • Support box    = thin band at the BOTTOM of the detected range
-//  Breakout arrows fire when close exits the range.
+//  Resistance box = thin band at TOP of detected range
+//  Support box    = thin band at BOTTOM of detected range
 // ═══════════════════════════════════════════════════════════
 sz_lookback = input.int(20,    "Zone Lookback Bars",           minval=5,   maxval=100,        group="② S/D Zones")
 sz_atrMult  = input.float(3.5, "Sideway ATR Multiplier",       minval=1.0, maxval=15.0, step=0.5, group="② S/D Zones")
@@ -79,8 +78,8 @@ sz_lo    = ta.lowest(low,  sz_lookback)
 sz_range = sz_hi - sz_lo
 sz_isSW  = sz_range < sz_atr * sz_atrMult and sz_range > 0
 
-var box   sz_resBox  = na   // resistance zone (top band)
-var box   sz_supBox  = na   // support zone (bottom band)
+var box   sz_resBox  = na
+var box   sz_supBox  = na
 var float sz_top     = na
 var float sz_bot     = na
 var bool  sz_open    = false
@@ -90,18 +89,16 @@ var int   sz_coolCnt = 0
 
 sz_coolCnt := math.max(0, sz_coolCnt - 1)
 
-sz_hPx = sz_atr * sz_boxH  // box height in price units
+sz_hPx = sz_atr * sz_boxH
 
 if enableZone and sz_isSW and not sz_open and sz_coolCnt == 0
     sz_top   := sz_hi
     sz_bot   := sz_lo
-    // Resistance box — thin band at the top of the range
     sz_resBox := box.new(
          bar_index - sz_lookback, sz_hi - sz_hPx, bar_index, sz_hi,
          bgcolor      = sz_zoneClr,
          border_color = color.new(#FFA726, 20),
          border_width = 1)
-    // Support box — thin band at the bottom of the range
     sz_supBox := box.new(
          bar_index - sz_lookback, sz_lo, bar_index, sz_lo + sz_hPx,
          bgcolor      = sz_zoneClr,
@@ -111,7 +108,6 @@ if enableZone and sz_isSW and not sz_open and sz_coolCnt == 0
     sz_upCnt := 0
     sz_dnCnt := 0
 
-// Extend both boxes rightward while the zone is active
 if sz_open
     if not na(sz_resBox)
         box.set_right(sz_resBox, bar_index)
@@ -158,28 +154,45 @@ alertcondition(sz_confirmedUp, "② Breakout UP",    "Suite: Breakout UP")
 alertcondition(sz_confirmedDn, "② Breakdown DOWN", "Suite: Breakdown DOWN")
 
 // ═══════════════════════════════════════════════════════════
-//  MODULE 3 — HORIZONTAL S/R LINES
-//  v1.5.0: replaces diagonal trendlines with flat dashed lines
-//  at the most recent significant pivot high (resistance)
-//  and most recent significant pivot low (support).
+//  MODULE 3 — TRENDLINES (convergence-only)
+//  Upper line = last 2 swing HIGHS (resistance)
+//  Lower line = last 2 swing LOWS  (support)
+//  Rule: draw ONLY when slope_resistance ≤ slope_support
+//        (lines converge → triangle, or run parallel → channel)
+//        Diverging / fanning outward → skip, draw nothing.
 // ═══════════════════════════════════════════════════════════
-tl_left   = input.int(10,    "Pivot Left Bars",     minval=3, maxval=50, group="③ S/R Lines")
-tl_right  = input.int(10,    "Pivot Right Bars",    minval=3, maxval=50, group="③ S/R Lines")
-tl_resClr = input.color(#EF9A9A, "Resistance Color", group="③ S/R Lines")
-tl_supClr = input.color(#80DEEA, "Support Color",    group="③ S/R Lines")
-tl_lw     = input.int(2,         "Line Width", minval=1, maxval=4, group="③ S/R Lines")
+tl_left   = input.int(10,    "Pivot Left Bars",     minval=3, maxval=50, group="③ Trendlines")
+tl_right  = input.int(10,    "Pivot Right Bars",    minval=3, maxval=50, group="③ Trendlines")
+tl_resClr = input.color(#EF9A9A, "Resistance Color", group="③ Trendlines")
+tl_supClr = input.color(#80DEEA, "Support Color",    group="③ Trendlines")
+tl_lw     = input.int(2,         "Line Width", minval=1, maxval=4, group="③ Trendlines")
 
 tl_swHi = ta.pivothigh(high, tl_left, tl_right)
 tl_swLo = ta.pivotlow(low,  tl_left, tl_right)
 
-var float tl_resLevel = na  // price of most recent pivot high
-var float tl_supLevel = na  // price of most recent pivot low
+// Last 2 pivot highs
+var float tl_hi1     = na
+var int   tl_hi1_bar = na
+var float tl_hi2     = na
+var int   tl_hi2_bar = na
+
+// Last 2 pivot lows
+var float tl_lo1     = na
+var int   tl_lo1_bar = na
+var float tl_lo2     = na
+var int   tl_lo2_bar = na
 
 if not na(tl_swHi)
-    tl_resLevel := tl_swHi
+    tl_hi2     := tl_hi1
+    tl_hi2_bar := tl_hi1_bar
+    tl_hi1     := tl_swHi
+    tl_hi1_bar := bar_index - tl_right
 
 if not na(tl_swLo)
-    tl_supLevel := tl_swLo
+    tl_lo2     := tl_lo1
+    tl_lo2_bar := tl_lo1_bar
+    tl_lo1     := tl_swLo
+    tl_lo1_bar := bar_index - tl_right
 
 var line tl_resLine = na
 var line tl_supLine = na
@@ -190,27 +203,28 @@ if enableLines
     tl_resLine := na
     tl_supLine := na
 
-    // Horizontal resistance line — flat at last pivot high, extends both ways
-    if not na(tl_resLevel)
-        tl_resLine := line.new(
-             chart.point.from_index(bar_index - 1, tl_resLevel),
-             chart.point.from_index(bar_index,     tl_resLevel),
-             extend      = extend.both,
-             color       = tl_resClr,
-             width       = tl_lw,
-             style       = line.style_dashed)
+    tl_hasRes = not na(tl_hi1) and not na(tl_hi2) and tl_hi1_bar != tl_hi2_bar
+    tl_hasSup = not na(tl_lo1) and not na(tl_lo2) and tl_lo1_bar != tl_lo2_bar
 
-    // Horizontal support line — flat at last pivot low, extends both ways
-    if not na(tl_supLevel)
-        tl_supLine := line.new(
-             chart.point.from_index(bar_index - 1, tl_supLevel),
-             chart.point.from_index(bar_index,     tl_supLevel),
-             extend      = extend.both,
-             color       = tl_supClr,
-             width       = tl_lw,
-             style       = line.style_dashed)
+    // Need both sides to check convergence
+    if tl_hasRes and tl_hasSup
+        tl_sRes = (tl_hi1 - tl_hi2) / (tl_hi1_bar - tl_hi2_bar)  // resistance slope
+        tl_sSup = (tl_lo1 - tl_lo2) / (tl_lo1_bar - tl_lo2_bar)  // support slope
+        // Converge or parallel: resistance rises slower (or falls faster) than support
+        // Diverge = resistance slope > support slope → skip
+        if tl_sRes <= tl_sSup
+            tl_resLine := line.new(
+                 chart.point.from_index(tl_hi2_bar, tl_hi2),
+                 chart.point.from_index(tl_hi1_bar, tl_hi1),
+                 extend = extend.right,
+                 color  = tl_resClr, width = tl_lw, style = line.style_dashed)
+            tl_supLine := line.new(
+                 chart.point.from_index(tl_lo2_bar, tl_lo2),
+                 chart.point.from_index(tl_lo1_bar, tl_lo1),
+                 extend = extend.right,
+                 color  = tl_supClr, width = tl_lw, style = line.style_dashed)
 
-// Touch alerts (unchanged)
+// Touch alerts
 tl_touchPct = close * 0.15 / 100
 tl_nearRes  = false
 tl_nearSup  = false
@@ -225,5 +239,5 @@ if enableLines and not na(tl_supLine)
     if not na(sv)
         tl_nearSup := math.abs(close - sv) <= tl_touchPct
 
-alertcondition(tl_nearSup, "③ Touch Support",    "Suite: Touching support line")
-alertcondition(tl_nearRes, "③ Touch Resistance", "Suite: Touching resistance line")
+alertcondition(tl_nearSup, "③ Touch Support",    "Suite: Touching support trendline")
+alertcondition(tl_nearRes, "③ Touch Resistance", "Suite: Touching resistance trendline")
