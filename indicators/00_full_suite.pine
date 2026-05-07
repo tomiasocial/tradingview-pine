@@ -1,9 +1,9 @@
 // ============================================================
-// Full Indicator Suite (All-in-One) | v1.7.0 | 2026-05-07
+// Full Indicator Suite (All-in-One) | v1.8.0 | 2026-05-07
 // Author: Project Owner
 // Description: Trend Candles + S/D Zones + Trendlines (convergence-only)
-// Changes v1.7.0: Breakout labels moved 2.5 ATR from candles + dashed arrow line.
-//                 Removed plotshape (labels now handle the signal visually).
+// Changes v1.8.0: Trendlines stop exactly at intersection (no overshoot).
+//                 Breakout labels = diagonal arrow line + plain blue text (no box).
 // ============================================================
 
 //@version=6
@@ -139,30 +139,24 @@ if (sz_confirmedUp or sz_confirmedDn) and sz_open
     sz_upCnt   := 0
     sz_dnCnt   := 0
 
-// Label placed 2.5 ATR away from candle + dashed arrow line connecting them
+// Diagonal arrow from candle outward + plain blue text (no colored box)
 if sz_confirmedUp
-    lbl_y = low - sz_atr * 2.5
-    label.new(bar_index, lbl_y, "▲ BREAKOUT",
-         style     = label.style_label_up,
-         color     = sz_upClr,
-         textcolor = color.white,
-         size      = size.small)
+    lbl_y = low - sz_atr * 1.8
     line.new(
-         chart.point.from_index(bar_index, low  - sz_atr * 0.2),
-         chart.point.from_index(bar_index, lbl_y + sz_atr * 0.3),
-         color = color.new(sz_upClr, 30), width = 1, style = line.style_dashed)
+         chart.point.from_index(bar_index,     low  - sz_atr * 0.1),
+         chart.point.from_index(bar_index + 6, lbl_y + sz_atr * 0.3),
+         color = color.new(color.blue, 20), width = 1, style = line.style_arrow_left)
+    label.new(bar_index + 6, lbl_y, "▲ BREAKOUT",
+         style = label.style_none, textcolor = color.blue, size = size.small)
 
 if sz_confirmedDn
-    lbl_y = high + sz_atr * 2.5
-    label.new(bar_index, lbl_y, "▼ BREAKDOWN",
-         style     = label.style_label_down,
-         color     = sz_dnClr,
-         textcolor = color.white,
-         size      = size.small)
+    lbl_y = high + sz_atr * 1.8
     line.new(
-         chart.point.from_index(bar_index, high + sz_atr * 0.2),
-         chart.point.from_index(bar_index, lbl_y - sz_atr * 0.3),
-         color = color.new(sz_dnClr, 30), width = 1, style = line.style_dashed)
+         chart.point.from_index(bar_index,     high + sz_atr * 0.1),
+         chart.point.from_index(bar_index + 6, lbl_y - sz_atr * 0.3),
+         color = color.new(color.blue, 20), width = 1, style = line.style_arrow_left)
+    label.new(bar_index + 6, lbl_y, "▼ BREAKDOWN",
+         style = label.style_none, textcolor = color.blue, size = size.small)
 
 alertcondition(sz_confirmedUp, "② Breakout UP",    "Suite: Breakout UP")
 alertcondition(sz_confirmedDn, "② Breakdown DOWN", "Suite: Breakdown DOWN")
@@ -224,19 +218,37 @@ if enableLines
     if tl_hasRes and tl_hasSup
         tl_sRes = (tl_hi1 - tl_hi2) / (tl_hi1_bar - tl_hi2_bar)  // resistance slope
         tl_sSup = (tl_lo1 - tl_lo2) / (tl_lo1_bar - tl_lo2_bar)  // support slope
-        // Converge or parallel: resistance rises slower (or falls faster) than support
-        // Diverge = resistance slope > support slope → skip
+        // Diverge = resistance slope > support slope → skip entirely
         if tl_sRes <= tl_sSup
-            tl_resLine := line.new(
-                 chart.point.from_index(tl_hi2_bar, tl_hi2),
-                 chart.point.from_index(tl_hi1_bar, tl_hi1),
-                 extend = extend.right,
-                 color  = tl_resClr, width = tl_lw, style = line.style_dashed)
-            tl_supLine := line.new(
-                 chart.point.from_index(tl_lo2_bar, tl_lo2),
-                 chart.point.from_index(tl_lo1_bar, tl_lo1),
-                 extend = extend.right,
-                 color  = tl_supClr, width = tl_lw, style = line.style_dashed)
+            tl_denom = tl_sRes - tl_sSup  // ≤ 0
+
+            if math.abs(tl_denom) < 1e-9
+                // Parallel lines — extend right indefinitely
+                tl_resLine := line.new(
+                     chart.point.from_index(tl_hi2_bar, tl_hi2),
+                     chart.point.from_index(tl_hi1_bar, tl_hi1),
+                     extend = extend.right,
+                     color  = tl_resClr, width = tl_lw, style = line.style_dashed)
+                tl_supLine := line.new(
+                     chart.point.from_index(tl_lo2_bar, tl_lo2),
+                     chart.point.from_index(tl_lo1_bar, tl_lo1),
+                     extend = extend.right,
+                     color  = tl_supClr, width = tl_lw, style = line.style_dashed)
+            else
+                // Converging — calculate exact intersection and stop there
+                tl_xInt = (tl_lo2 - tl_hi2 - tl_sSup * tl_lo2_bar + tl_sRes * tl_hi2_bar) / tl_denom
+                tl_yInt = tl_hi2 + tl_sRes * (tl_xInt - tl_hi2_bar)
+                tl_intBar = int(math.round(tl_xInt))
+                tl_resLine := line.new(
+                     chart.point.from_index(tl_hi2_bar, tl_hi2),
+                     chart.point.from_index(tl_intBar,  tl_yInt),
+                     extend = extend.none,
+                     color  = tl_resClr, width = tl_lw, style = line.style_dashed)
+                tl_supLine := line.new(
+                     chart.point.from_index(tl_lo2_bar, tl_lo2),
+                     chart.point.from_index(tl_intBar,  tl_yInt),
+                     extend = extend.none,
+                     color  = tl_supClr, width = tl_lw, style = line.style_dashed)
 
 // Touch alerts
 tl_touchPct = close * 0.15 / 100
